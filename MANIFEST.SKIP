@@ -1,0 +1,30 @@
+private # Personal information!
+\.tar\.gz # Build dist output
+# Below this point is default stuff
+
+# Avoid version control files.
+\bRCS\b
+\bCVS\b
+,v$
+\B\.svn\b
+
+# Avoid Makemaker generated and utility files.
+\bMakefile$
+\bblib
+\bMakeMaker-\d
+\bpm_to_blib$
+\bblibdirs$
+# JMM -- I want to be really sure that the manifest skip file stays around,
+# so I don't end up accidently shipping private info.
+# ^MANIFEST\.SKIP$
+
+# Avoid Module::Build generated and utility files.
+\bBuild$
+\b_build
+
+# Avoid temp and backup files.
+~$
+\.old$
+\.bak$
+\#$
+\b\.#

@@ -1,0 +1,56 @@
+Transaction information:
+Dates/times.  Currently stored as unixish times.  This may change to
+something capable of storing resolution, and expressing times without
+knowlage of TZ.
+
+bank_date      -- when the transaction was submitted to the bank
+effective_date -- when the transactoin deducted/added to the balence of the
+	       account
+sale_date      -- when the transaction acctualy occoured
+
+Currency amounts.  Currently stored as simple numbers.  This should change
+to something capable of expressing an amount, with decimal resolution, along
+with the currency it is in, and possibly currency conversion rates.
+
+amount	    -- the amount which has been/will be deducted from your acocunt
+base_amount -- the amount the vendor billed for.  This does not include
+	       fees, and may be in a different currency from the amount.
+	       (NB/FIXME: This description is inaccurate for things like ATMs) 
+fees	    -- This is the difference between the amount and the base_amount.
+(exchange_rate) -- fixme: base_amount should be cool enough to include this?
+
+comments -- 
+     arrayref of arbitrary data.  This is what the grok functions operate
+     on.  Depending on local norms, this is often in a prescribed format --
+     for example, this should be the Verwendungsweck for German accounts.
+     
+     Note the "arrayref of" -- this should be in 27-character chunks, for
+     German accounts.
+
+ccard_number, ccard_type -- specifies what credit card was used.  This
+	      should be generalized, at least in name (what about EC cards, debit cards),
+	      and probably stored as an agragate.
+ccard_type -- "Electronic Cash", "VISA"
+
+infourl -- internal.
+groked -- specifies if a "grok" function has added to the available data.
+country -- specifies the country of origin of the transaction.  FIXME, this
+	should be used to determine the currency of the base amount.
+
+info1, info2 -- random text extracted from VISA transactions???
+
+MiniMal style:
+Tengleman uses a partal minimal style, with 
+'POZ9124966[56789] DD.MM HH.MM ME0 VIELEN DANK' in the misc2 field, but no
+long-number field.
+
+C&A:
+000000000011111111112222222
+012345678901234567890123456
+DDMMHHmm           SSSSCCCC
+150519260271550041201230005 POZ96071850 15.05 19.26 ME0 UNT0123KASS0005
+DDMMHHmm -- time/date      
+                   SSSS - Store
+         Checkout nr - CCCC
+	            
+  
