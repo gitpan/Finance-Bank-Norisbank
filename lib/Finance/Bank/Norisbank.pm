@@ -2,20 +2,21 @@ package Finance::Bank::Norisbank;
 
 =head1 NAME
 
-Finance::Bank::Norisbank - Automated account interaction for customers of Norisbank GMBH.
+Finance::Bank::Norisbank - Automated account interaction for customers of Norisbank AG.
 
 =cut
 
-$VERSION=0.01;
+$VERSION=0.02;
 $DEBUG=0;
 use vars '$DEBUG';
 use warnings;
 use strict;
+use Carp;
 use HTML::TreeBuilder;
 use URI;
-use URI::QueryParam;
+use File::Spec;
 BEGIN {
-    if (require Data::Dump::Streamer) {
+    if (0 && require Data::Dump::Streamer) {
 	'Data::Dump::Streamer'->import('Dumper');
     } else {
 	require Data::Dumper;
@@ -24,10 +25,9 @@ BEGIN {
 }
 use Time::Local;
 use WWW::Mechanize;
-use URI::URL;
 use HTML::TableExtract;
-use POSIX; # for ceil and floor
-use Locale::Object; # for visa/foreign currency
+use POSIX 'ceil', 'floor'; # could reimplement easily enough, but should be pretty universal.
+use Storable;
 $|=1;
 
 =item new
@@ -78,10 +78,11 @@ sub login {
     my $agent=$self->{agent};
     
     $self->status('Getting login form...');
-    $agent->get('https://onlinebanking.norisbank.de/login/login.jsp');
+    $agent->get('https://onlinebanking.norisbank.de/norisbank/login.do?method=login');
     $self->status('Logging in...');
 
-    $agent->form_name('login');
+    # Defensiveness -- it used to be login, now it's loginForm -- but in both cases, it's the only form on the page.
+    $agent->form_number(0);
     $agent->current_form->value('kontonummer', $self->{accountnr});
     $agent->current_form->value('pin', $self->{pin});
     
@@ -196,7 +197,7 @@ sub get_transactions
     $agent->follow('1') or
         warn $self->parse_error($agent);
     $self->status('Getting transactions list...', 2, 10);
-    $agent->follow('Auswahl Girokonten') or
+    $agent->follow('Girokonten') or
         warn $self->parse_error($agent);
     $self->status('Getting transactions list...', 3, 10);
     
@@ -216,9 +217,12 @@ sub get_transactions
 
 #    print $agent->content, "\n\n";
     $agent->form_number(0);
-    $agent->current_form->value('datumvon', $datefrom);
-    $agent->current_form->value('datumbis', $dateto);
-    $agent->click('');
+    $agent->current_form->value('von', $datefrom);
+    $agent->current_form->value('bis', $dateto);
+#    $agent->click('');
+    # Norisbank is evil!  We hateses them, we does, yess, yessss.
+    $agent->current_form->action('https://onlinebanking.norisbank.de/norisbank/umsatzauskunft.do?method=giroUmsatzauskunft');
+    $agent->submit;
     $self->status('Getting transactions list...', 8, 10);
     $agent->follow(1) or
         warn $self->parse_error($agent);
@@ -247,7 +251,8 @@ sub get_transactions
 	die "Huh, no transactions?";
     }
     
-    my @trs = map {$_->parent->parent} @bghabens;
+    # We want only the TR that contains the a tag directly, thus the scalar.
+    my @trs = map {scalar $_->look_up('_tag' => 'tr')} @bghabens;
     {
 	my %seen;
 
@@ -269,43 +274,27 @@ sub get_transactions
 	my %trans;
 	
 	dprint "\n", $tr->address, "\n";
-#	dprint $tr->dump;
+	$tr->dump if $DEBUG;
 	
 	$trans{address}         = $tr->address;
 	$trans{bank_date}       = cleandate($tr->address('.0.0'));
 	$trans{effective_date}  = cleandate($tr->address('.1.0'), $trans{bank_date});
-	$trans{type}            = $tr->address('.2.0.0');
-	$trans{thirdparty_name} = $tr->address('.2.0.2');
-	my $comments_str        = $tr->address('.2.0.4') || '';
-	$trans{comments_str}    = $comments_str; # debugging
+	$trans{type}            = ltrim($tr->address('.2.0.0'));
+	$trans{thirdparty_name} = ltrim($tr->address('.2.0.2'));
 	$trans{amount}          = cleanamount($tr->address('.3.0'));
 	$trans{balance}         = cleanamount($tr->address('.4.0'));
 	$trans{infourl}         = $tr->address('.2.0')->attr('href');
-dprint Dumper(\%trans);	
+	
+	# 2... doesn't work in perl5, sniff.
+	for (2..999) {
+	    my $elem = $tr->address('.2.0.'.($_*2));
+	    last if !$elem;
+	    
+	    push @{$trans{comments}}, ltrim($elem);
+	}
+	
+dprint Dumper(\%trans);
 
-	# Split comments_str out into a lines
-# 	{
-# 	    local $_=$comments_str;
-# 	    my @lines;
-# 	    while (length $_) {
-# 		my $p=substr($_, 0, 1, '');
-# 		while ($p ne ' ') {
-# 		    print "Remaining text: $_\n";
-# 		    print "p='$p'\n";
-# 		    die "line to short, but no previous line?" 
-# 		      unless length $lines[-1];
-# 		    print "previous line=$lines[-1]\n";
-# 		    $_ = substr($lines[-1], -1, 1, '') . $p . $_;
-# 		    $p=substr($_, 0, 1, '');
-# 		}
-# 		my $line = substr($_, 0, 27, '');
-# 		push @lines, $line;
-# 		print "$line\n";
-# 	    }
-# 	    $trans{comments}=\@lines;
-# 	}
-	$trans{comments}=[$comments_str=~m/ (.{0,27}(?!\S))/g];
-		
 	# Translate transaction types
 	local $_=$trans{type};
 	s/^.berweisung$/liability transfer (local init)/i;      # Customer-initiated transfer
@@ -487,6 +476,7 @@ sub grok_cardreader {
   }
 }
 
+my $currency_info;
 sub grok_visa {
     my $trans=shift;
     
@@ -506,10 +496,22 @@ sub grok_visa {
     
     $trans->{misc}[1]=$misc2;
     $trans->{country}=$country;
-    my $currency = Locale::Object::Country
-      ->new(code_alpha2=>$country)
-      ->currency
-      ->code;
+    if (!$currency_info) {
+	# Load currency info once, keep it in memory thereafter.  It's only
+	# about 33k, so this is best-of-both-worlds, and doing it ourselves
+	# can keep us from depending on DBI, SQLite, and DateTime (though
+	# we may want to use DateTime anyway in the future).	
+	
+        # The database should be in the same directory as this file. Get
+        # the location.
+	my (undef, $path) = File::Spec->splitpath(__FILE__);
+	my $dbpath = $path . 'currency.storable';
+	$currency_info = Storable::retrieve($dbpath);
+	if (!$currency_info) {
+	    die "Couldn't retrieve $dbpath: $!";
+	}
+    }
+    my $currency = $currency_info->{lc $country};
     $trans->{currency} = $currency;
     $trans->{base_amount} = cleannumber($amt);
     
@@ -582,16 +584,25 @@ sub cleannumber {
 
 sub cleandate {
     local $_=shift;
+    croak "cleandate(undef)" if not defined $_;
 #    dprint "Date: $_\n";
     tr|.-/|---|;
     tr|-0-9||cd;
     my ($day,$mon,$year)=split(/-/);
-    if (not length $year) {
+    if (not $year) {
 	$year = (localtime)[5];
     }
     $_=timelocal(0,0,0,$day,$mon-1,$year);
 #    dprint "Date: $_\n";
     return $_;
+}
+
+# Remove leading/left whitespace
+sub ltrim {
+    local $_=shift;
+    return undef if not defined $_;
+    s/^\s*//;
+    $_;
 }
 
 1;

@@ -1,5 +1,5 @@
 private # Personal information!
-\.tar\.gz # Build dist output
+\.tar\.gz$ # Build dist output
 # Below this point is default stuff
 
 # Avoid version control files.

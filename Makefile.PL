@@ -9,14 +9,11 @@ WriteMakefile
           'PREREQ_PM' => {
                            'URI' => 0,
                            'WWW::Mechanize' => 0,
+                           'LWP::Protocol::https' => 0,
                            'Data::Dumper' => 0,
-                           'URI::QueryParam' => 0,
-                           'HTML::TreeBuilder' => 0,
-                           'Locale::Object' => 0,
-                           'POSIX' => 0,
-                           'URI::URL' => 0,
                            'HTML::TableExtract' => 0,
-                           'Time::Local' => 0
+                           'Time::Local' => 0,
+                           'HTML::TreeBuilder' => 0
                          }
         )
 ;

@@ -84,7 +84,7 @@ is($trans->{misc}[0],      'RYANAIR INTE0000000N ', 'visa: misc[0]');
 is(scalar gmtime $trans->{sale_date}, 'Wed Dec 31 23:00:00 2003', 'visa: sale_date');
 is($trans->{misc}[1],      'DUBLIN     ', 'visa: misc[1]');
 is($trans->{country},      'IE', 'visa: country');
-is($trans->{currency},     'EUR', 'visa: currency');
+is($trans->{currency}{code},  'EUR', 'visa: currency');
 is($trans->{base_amount},  123.45, 'visa: base_amount');
 is($trans->{fees},         0, 'visa: fees');
 

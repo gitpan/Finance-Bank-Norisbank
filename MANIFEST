@@ -1,5 +1,5 @@
-Finance-Bank-Norisbank-0.01.tar.gz
 lib/Finance/Bank/Norisbank.pm
+lib/Finance/Bank/currency.storable
 Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP

@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: Finance-Bank-Norisbank
-version: 0.01
+version: 0.02
 author:
   - |-
     James Mastros, <james@mastros.biz>.  theorbtwo on perlmonks.org.
@@ -16,15 +16,12 @@ requires:
   Data::Dumper: 0
   HTML::TableExtract: 0
   HTML::TreeBuilder: 0
-  Locale::Object: 0
-  POSIX: 0
+  LWP::Protocol::https: 0
   Time::Local: 0
   URI: 0
-  URI::QueryParam: 0
-  URI::URL: 0
   WWW::Mechanize: 0
 provides:
   Finance::Bank::Norisbank:
     file: lib/Finance/Bank/Norisbank.pm
-    version: 0.01
+    version: 0.02
 generated_by: Module::Build version 0.25
